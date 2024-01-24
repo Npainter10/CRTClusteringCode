@@ -1,0 +1,223 @@
+# Import libraries
+import pandas as pd
+from matplotlib import pyplot as plt
+import numpy as np
+import scipy.cluster.hierarchy as shc
+from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
+from sklearn.impute import KNNImputer
+import statsmodels.api as sm
+from statsmodels.formula.api import ols
+from scipy.stats import chi2_contingency
+from sklearn.metrics import (silhouette_score,davies_bouldin_score,calinski_harabasz_score,adjusted_mutual_info_score,)
+from sklearn.cluster import AgglomerativeClustering
+import seaborn as sns
+# Read in data set
+path_to_file = "/Users/noahp/OneDrive/CRTdataset.csv"
+df = pd.read_csv(path_to_file)
+print(df)
+# Set Index as ID-Response
+new_label = []
+for value in df["CRT_Response"]:
+    if value <= 0:
+        new_label.append("_NORES")
+    else:
+        new_label.append("_RES")
+df["New_label"] = new_label
+print(df.head)
+df["New_ID"] = df[["ID", "New_label"]].apply(lambda x: "".join(x), axis=1)
+df = df.set_index("New_ID", inplace=False)
+# Deleting the worst predictors
+del df["ID"]
+del df["CRT_Response"]
+del df["New_label"]
+del df["Hospitalization"]
+del df["Lead0"]
+del df["Lead1"]
+del df["Lead2"]
+del df["Lead3"]
+del df["Lead4"]
+del df["No_Events"]
+print(df.columns)
+print(df.head)
+# Figure out the best number of clusters to use
+for n_clusters in range(3, 11):
+    clustering_model = AgglomerativeClustering(n_clusters=n_clusters, metric="euclidean", linkage="complete")
+    clustering_model.fit(df)
+    labels = clustering_model.labels_
+    silhouette_avg = silhouette_score(df, labels)
+    print("For ",n_clusters," clusters, the average silhouette score is : ",silhouette_avg,)
+    davies_bouldin_avg = davies_bouldin_score(df, labels)
+    print("For ",n_clusters," clusters, the average davies bouldin score is : ",davies_bouldin_avg,)
+    calinski_harabasz_avg = calinski_harabasz_score(df, labels)
+    print("For ",n_clusters," clusters, the average calinski harbabasz score is : ",calinski_harabasz_avg,)
+    df2 = pd.DataFrame({"Labels": labels, "Res/No_Res": df.index.tolist()})
+    ct = pd.crosstab(df2["Labels"], df2["Res/No_Res"])
+    arranged_labels = df2.sort_values("Labels")
+    print("For ", n_clusters, "clusters, the response is as follows.")
+    for x in range(0, n_clusters):
+        labx = arranged_labels[(arranged_labels["Labels"] == x)]
+        search1 = "_NORES"
+        search2 = "_RES"
+        NORES_df = labx["Res/No_Res"].str.endswith(search1, na=False)
+        RES_df = labx["Res/No_Res"].str.endswith(search2, na=False)
+        print("For cluster ", x + 1, "the response is as follows.")
+        del labx["Labels"]
+        print("No Response ", labx[NORES_df].count())
+        print("Response ", labx[RES_df].count())
+        print("The response rate is",labx[RES_df].count() / (labx[RES_df].count() + labx[NORES_df].count()),)
+# Decide between 3 and 4 clusters
+clustering_model = AgglomerativeClustering(n_clusters=3, metric="euclidean", linkage="complete")
+clustering_model.fit(df)
+labels3 = clustering_model.labels_
+clustering_model = AgglomerativeClustering(n_clusters=4, metric="euclidean", linkage="complete")
+clustering_model.fit(df)
+labels4 = clustering_model.labels_
+print(adjusted_mutual_info_score(labels3, labels4))
+# Create a dendrogram with four clusters
+mergings = linkage(df, method="complete")
+plt.figure(figsize=(35, 15))
+dendrogram(mergings,labels=df.index.tolist(),leaf_rotation=90,leaf_font_size=4,color_threshold=570,)
+plt.axhline(y=570, c="blue", lw=1, linestyle="dashed")
+# Shuffle the data to check if dendrogram is valid
+df_shuf = df.sample(frac=1)
+df_shuf.index.tolist()
+mergings1 = linkage(df_shuf, method="complete")
+plt.figure(figsize=(35, 15))
+dendrogram(mergings1,labels=df_shuf.index.tolist(),leaf_rotation=90,leaf_font_size=4,color_threshold=570,)
+plt.axhline(y=570, c="red", lw=1, linestyle="dashed")
+# Create clusters
+labels = fcluster(mergings, 570, criterion="distance")
+df2 = pd.DataFrame({"Labels": labels, "Res/No_Res": df.index.tolist()})
+arranged_labels = df2.sort_values("Labels")
+ct = pd.crosstab(df2["Labels"], df2["Res/No_Res"])
+# Create cluster 1
+lab1 = arranged_labels[(arranged_labels["Labels"] == 1)]
+print(lab1)
+search1 = "_NORES"
+search2 = "_RES"
+NORES_df1 = lab1["Res/No_Res"].str.endswith(search1, na=False)
+RES_df1 = lab1["Res/No_Res"].str.endswith(search2, na=False)
+print(lab1[NORES_df1].count())
+print(lab1[RES_df1].count())
+lab1 = lab1.set_index("Res/No_Res", inplace=False)
+clust1 = lab1.index.tolist()
+clust_1 = df[df.index.isin(clust1)]
+clust_1["Cluster"] = 1
+# Create cluster 2
+lab2 = arranged_labels[(arranged_labels["Labels"] == 2)]
+NORES_df2 = lab2["Res/No_Res"].str.endswith(search1, na=False)
+RES_df2 = lab2["Res/No_Res"].str.endswith(search2, na=False)
+print(lab2[NORES_df2].count())
+print(lab2[RES_df2].count())
+lab2 = lab2.set_index("Res/No_Res", inplace=False)
+clust2 = lab2.index.tolist()
+clust_2 = df[df.index.isin(clust2)]
+clust_2["Cluster"] = 2
+# Create cluster 3
+lab3 = arranged_labels[(arranged_labels["Labels"] == 3)]
+NORES_df3 = lab3["Res/No_Res"].str.endswith(search1, na=False)
+RES_df3 = lab3["Res/No_Res"].str.endswith(search2, na=False)
+print(lab3[NORES_df3].count())
+print(lab3[RES_df3].count())
+lab3 = lab3.set_index("Res/No_Res", inplace=False)
+clust3 = lab3.index.tolist()
+clust_3 = df[df.index.isin(clust3)]
+clust_3["Cluster"] = 3
+# Create cluster 4
+lab4 = arranged_labels[(arranged_labels["Labels"] == 4)]
+NORES_df4 = lab4["Res/No_Res"].str.endswith(search1, na=False)
+RES_df4 = lab4["Res/No_Res"].str.endswith(search2, na=False)
+print(lab4[NORES_df4].count())
+print(lab4[RES_df4].count())
+lab4 = lab4.set_index("Res/No_Res", inplace=False)
+clust4 = lab4.index.tolist()
+clust_4 = df[df.index.isin(clust4)]
+clust_4["Cluster"] = 4
+# Combine all clusters into one dataframe
+df3 = pd.concat([clust_1, clust_2, clust_3, clust_4])
+# Check for significance of categorical variables
+for column in df3[["ACEI_or_ARB","CABG","CAD","Concordance","DM","Gender","HTN","LBBB","MI","NYHA2","NYHA3","NYHA4","PCI","Race1","Race2","Race3","Race4","Race5","SPECT_LatestSegment","Smoking",]]:
+    columnSeriesObj = df3[column]
+    column_crosstab = pd.crosstab(columnSeriesObj, df3["Cluster"], margins=False)
+    print(column_crosstab)
+    stat, p, dof, expected = chi2_contingency(column_crosstab)
+    alpha = 0.05
+    print("significance=%.3f,p=%.3f" % (alpha, p))
+    if p <= alpha:
+        print("Variables are assosiated: Reject H0")
+    else:
+        print("Variables are not assosiated: Do not reject H0")
+# Check for signficance of all continous variables
+for column in df3[
+    [
+        "Age",
+        "ECG_pre_QRSd",
+        "SPECT_post_LVEF",
+        "SPECT_pre_Diastolic_PBW",
+        "SPECT_pre_Diastolic_PSD",
+        "SPECT_pre_Diastolic_PhaseKurt",
+        "SPECT_pre_Diastolic_PhasePeak",
+        "SPECT_pre_Diastolic_PhaseSkew",
+        "SPECT_pre_EDE",
+        "SPECT_pre_EDSI",
+        "SPECT_pre_EDV",
+        "SPECT_pre_ESE",
+        "SPECT_pre_ESSI",
+        "SPECT_pre_ESV",
+        "SPECT_pre_LVEF",
+        "SPECT_pre_PBW",
+        "SPECT_pre_PSD",
+        "SPECT_pre_PhaseKurt",
+        "SPECT_pre_PhasePeak",
+        "SPECT_pre_PhaseSkew",
+        "SPECT_pre_SRscore",
+        "SPECT_pre_StrokeVolume",
+        "SPECT_pre_gMyoMass",
+        "SPECT_pre_WTper",
+        "SPECT_pre_WTsum",
+        "SPECT_pre_50scar",
+        "SPECT_pre_PSD_noScar",
+        "SPECT_pre_PBW_noScar",
+    ]
+]:
+    columnSeriesObj2 = df3[column]
+    print("ANOVA for :", column)
+    mod = ols("columnSeriesObj2~Cluster", data=df3).fit()
+    anova_table = sm.stats.anova_lm(mod, typ=2)
+    print(anova_table)
+# Analyze the data for all relevant continous variables
+print("Cluster 1 means")
+print(clust_1.mean())
+print("Cluster 2 means")
+print(clust_2.mean())
+print("Cluster 3 means")
+print(clust_3.mean())
+print("Cluster 4 means")
+print(clust_4.mean())
+print("Overall means")
+print(df3.mean())
+print("Cluster 1 sds")
+print(clust_1.std())
+print("Cluster 2 sds")
+print(clust_2.std())
+print("Cluster 3 sds")
+print(clust_3.std())
+print("Cluster 4 sds")
+print(clust_4.std())
+print("Overall standard deviations")
+print(df3.std())
+# Generate boxplots of some relevant variables
+df3.boxplot("SPECT_pre_EDE", by="Cluster")
+df3.boxplot("SPECT_pre_ESE", by="Cluster")
+df3.boxplot("SPECT_pre_SRscore", by="Cluster")
+df3.boxplot("SPECT_pre_StrokeVolume", by="Cluster")
+df3.boxplot("SPECT_pre_gMyoMass", by="Cluster")
+df3.boxplot("SPECT_pre_50scar", by="Cluster")
+df3.boxplot("SPECT_pre_Diastolic_PBW", by="Cluster")
+df3.boxplot("SPECT_pre_Diastolic_PSD", by="Cluster")
+df3.boxplot("SPECT_pre_PBW", by="Cluster")
+df3.boxplot("SPECT_pre_PSD", by="Cluster")
+df3.boxplot("SPECT_pre_PSD_noScar", by="Cluster")
+df3.boxplot("SPECT_pre_PBW_noScar", by="Cluster")
+plt.show()
+print(df3)
