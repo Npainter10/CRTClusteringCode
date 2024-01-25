@@ -14,7 +14,6 @@ import seaborn as sns
 # Read in data set
 path_to_file = "/Users/noahp/OneDrive/CRTdataset.csv"
 df = pd.read_csv(path_to_file)
-print(df)
 # Set Index as ID-Response
 new_label = []
 for value in df["CRT_Response"]:
@@ -37,8 +36,6 @@ del df["Lead2"]
 del df["Lead3"]
 del df["Lead4"]
 del df["No_Events"]
-print(df.columns)
-print(df.head)
 # Figure out the best number of clusters to use
 for n_clusters in range(3, 11):
     clustering_model = AgglomerativeClustering(n_clusters=n_clusters, metric="euclidean", linkage="complete")
@@ -92,7 +89,6 @@ arranged_labels = df2.sort_values("Labels")
 ct = pd.crosstab(df2["Labels"], df2["Res/No_Res"])
 # Create cluster 1
 lab1 = arranged_labels[(arranged_labels["Labels"] == 1)]
-print(lab1)
 search1 = "_NORES"
 search2 = "_RES"
 NORES_df1 = lab1["Res/No_Res"].str.endswith(search1, na=False)
@@ -220,4 +216,3 @@ df3.boxplot("SPECT_pre_PSD", by="Cluster")
 df3.boxplot("SPECT_pre_PSD_noScar", by="Cluster")
 df3.boxplot("SPECT_pre_PBW_noScar", by="Cluster")
 plt.show()
-print(df3)
