@@ -2,6 +2,7 @@
 import pandas as pd
 from matplotlib import pyplot as plt
 import numpy as np
+import scipy.stats as st
 import scipy.cluster.hierarchy as shc
 from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
 from sklearn.impute import KNNImputer
@@ -11,12 +12,14 @@ from scipy.stats import chi2_contingency
 from sklearn.metrics import (silhouette_score,davies_bouldin_score,calinski_harabasz_score,adjusted_mutual_info_score,)
 from sklearn.cluster import AgglomerativeClustering
 import seaborn as sns
+from scipy.stats import tukey_hsd
+from math import sqrt
 # Read in data set
-path_to_file = "/Users/noahp/OneDrive/CRTdataset.csv"
+path_to_file = "/Users/noahp/OneDrive/Documents/CRTdataset.csv"
 df = pd.read_csv(path_to_file)
 # Set Index as ID-Response
 new_label = []
-for value in df["CRT_Response"]:
+for value in df["CRT_ResponseAll"]:
     if value <= 0:
         new_label.append("_NORES")
     else:
@@ -26,8 +29,13 @@ print(df.head)
 df["New_ID"] = df[["ID", "New_label"]].apply(lambda x: "".join(x), axis=1)
 df = df.set_index("New_ID", inplace=False)
 # Deleting the worst predictors
-del df["ID"]
+del df["CRT_ResponseAll"]
 del df["CRT_Response"]
+del df["CRT_ResponseESV"]
+del df["CRT_ResponsePSD"]
+del df["ID"]
+del df["SPECT_post_ESV"]
+del df["SPECT_post_PSD"]
 del df["New_label"]
 del df["Hospitalization"]
 del df["Lead0"]
@@ -36,7 +44,7 @@ del df["Lead2"]
 del df["Lead3"]
 del df["Lead4"]
 del df["No_Events"]
-# Figure out the best number of clusters to use
+#Determine number of clusters to use
 for n_clusters in range(3, 11):
     clustering_model = AgglomerativeClustering(n_clusters=n_clusters, metric="euclidean", linkage="complete")
     clustering_model.fit(df)
@@ -144,44 +152,30 @@ for column in df3[["ACEI_or_ARB","CABG","CAD","Concordance","DM","Gender","HTN",
     else:
         print("Variables are not assosiated: Do not reject H0")
 # Check for signficance of all continous variables
-for column in df3[
-    [
-        "Age",
-        "ECG_pre_QRSd",
-        "SPECT_post_LVEF",
-        "SPECT_pre_Diastolic_PBW",
-        "SPECT_pre_Diastolic_PSD",
-        "SPECT_pre_Diastolic_PhaseKurt",
-        "SPECT_pre_Diastolic_PhasePeak",
-        "SPECT_pre_Diastolic_PhaseSkew",
-        "SPECT_pre_EDE",
-        "SPECT_pre_EDSI",
-        "SPECT_pre_EDV",
-        "SPECT_pre_ESE",
-        "SPECT_pre_ESSI",
-        "SPECT_pre_ESV",
-        "SPECT_pre_LVEF",
-        "SPECT_pre_PBW",
-        "SPECT_pre_PSD",
-        "SPECT_pre_PhaseKurt",
-        "SPECT_pre_PhasePeak",
-        "SPECT_pre_PhaseSkew",
-        "SPECT_pre_SRscore",
-        "SPECT_pre_StrokeVolume",
-        "SPECT_pre_gMyoMass",
-        "SPECT_pre_WTper",
-        "SPECT_pre_WTsum",
-        "SPECT_pre_50scar",
-        "SPECT_pre_PSD_noScar",
-        "SPECT_pre_PBW_noScar",
-    ]
-]:
+for column in df3[["Age","ECG_pre_QRSd","SPECT_post_LVEF","SPECT_pre_Diastolic_PBW","SPECT_pre_Diastolic_PSD","SPECT_pre_Diastolic_PhaseKurt","SPECT_pre_Diastolic_PhasePeak","SPECT_pre_Diastolic_PhaseSkew","SPECT_pre_EDE","SPECT_pre_EDSI","SPECT_pre_EDV","SPECT_pre_ESE","SPECT_pre_ESSI","SPECT_pre_ESV","SPECT_pre_LVEF","SPECT_pre_PBW","SPECT_pre_PSD","SPECT_pre_PhaseKurt","SPECT_pre_PhasePeak","SPECT_pre_PhaseSkew","SPECT_pre_SRscore","SPECT_pre_StrokeVolume","SPECT_pre_gMyoMass","SPECT_pre_WTper","SPECT_pre_WTsum","SPECT_pre_50scar","SPECT_pre_PSD_noScar","SPECT_pre_PBW_noScar",]]:
     columnSeriesObj2 = df3[column]
     print("ANOVA for :", column)
     mod = ols("columnSeriesObj2~Cluster", data=df3).fit()
     anova_table = sm.stats.anova_lm(mod, typ=2)
     print(anova_table)
+for column in df3[["ACEI_or_ARB","CABG","CAD","Concordance","DM","Gender","HTN","LBBB","MI","NYHA2","NYHA3","NYHA4","PCI","Race1","Race2","Race3","Race4","Race5","SPECT_LatestSegment","Smoking",]]:
+    columnSeriesObj2 = df3[column]
+    print("ANOVA for :", column)
+    mod = ols("columnSeriesObj2~Cluster", data=df3).fit()
+    anova_table = sm.stats.anova_lm(mod, typ=2)
+    print(anova_table)
+#Perform Tukey's HSD for continous variables
+for column in df3[["Age","ECG_pre_QRSd","SPECT_post_LVEF","SPECT_pre_Diastolic_PBW","SPECT_pre_Diastolic_PSD","SPECT_pre_Diastolic_PhaseKurt","SPECT_pre_Diastolic_PhasePeak","SPECT_pre_Diastolic_PhaseSkew","SPECT_pre_EDE","SPECT_pre_EDSI","SPECT_pre_EDV","SPECT_pre_ESE","SPECT_pre_ESSI","SPECT_pre_ESV","SPECT_pre_LVEF","SPECT_pre_PBW","SPECT_pre_PSD","SPECT_pre_PhaseKurt","SPECT_pre_PhasePeak","SPECT_pre_PhaseSkew","SPECT_pre_SRscore","SPECT_pre_StrokeVolume","SPECT_pre_gMyoMass","SPECT_pre_WTper","SPECT_pre_WTsum","SPECT_pre_50scar","SPECT_pre_PSD_noScar","SPECT_pre_PBW_noScar",]]:
+    print("Tukey's HSD for "+ column)
+    tukey = tukey_hsd(clust_1[column],clust_2[column],clust_3[column],clust_4[column])
+    print(tukey)
+#Perform Tukey's HSD for categorical variables
+for column in df3[["ACEI_or_ARB","CABG","CAD","Concordance","DM","Gender","HTN","LBBB","MI","NYHA2","NYHA3","NYHA4","PCI","Race1","Race2","Race3","Race4","Race5","SPECT_LatestSegment","Smoking",]]:
+    print("Tukey's HSD for "+ column)
+    tukey= tukey_hsd(clust_1[column],clust_2[column],clust_3[column],clust_4[column])
+    print(tukey)
 # Analyze the data for all relevant continous variables
+#Calculate Means for each cluster
 print("Cluster 1 means")
 print(clust_1.mean())
 print("Cluster 2 means")
@@ -192,6 +186,7 @@ print("Cluster 4 means")
 print(clust_4.mean())
 print("Overall means")
 print(df3.mean())
+#Calculate standard deviations for each cluster
 print("Cluster 1 sds")
 print(clust_1.std())
 print("Cluster 2 sds")
@@ -202,6 +197,27 @@ print("Cluster 4 sds")
 print(clust_4.std())
 print("Overall standard deviations")
 print(df3.std())
+#Calculate 95 percent confidence intervals for each cluster
+print("Overall CI's")
+for column in df3[["Age","ECG_pre_QRSd","SPECT_post_LVEF","SPECT_pre_Diastolic_PBW","SPECT_pre_Diastolic_PSD","SPECT_pre_Diastolic_PhaseKurt","SPECT_pre_Diastolic_PhasePeak","SPECT_pre_Diastolic_PhaseSkew","SPECT_pre_EDE","SPECT_pre_EDSI","SPECT_pre_EDV","SPECT_pre_ESE","SPECT_pre_ESSI","SPECT_pre_ESV","SPECT_pre_LVEF","SPECT_pre_PBW","SPECT_pre_PSD","SPECT_pre_PhaseKurt","SPECT_pre_PhasePeak","SPECT_pre_PhaseSkew","SPECT_pre_SRscore","SPECT_pre_StrokeVolume","SPECT_pre_gMyoMass","SPECT_pre_WTper","SPECT_pre_WTsum","SPECT_pre_50scar","SPECT_pre_PSD_noScar","SPECT_pre_PBW_noScar",]]:
+    print("CI for " + column)
+    print(st.norm.interval(confidence=.95, loc=np.mean(df3[column]), scale= st.sem(df3[column])))
+print("Cluster 1 CI's")
+for column in clust_1[["Age","ECG_pre_QRSd","SPECT_post_LVEF","SPECT_pre_Diastolic_PBW","SPECT_pre_Diastolic_PSD","SPECT_pre_Diastolic_PhaseKurt","SPECT_pre_Diastolic_PhasePeak","SPECT_pre_Diastolic_PhaseSkew","SPECT_pre_EDE","SPECT_pre_EDSI","SPECT_pre_EDV","SPECT_pre_ESE","SPECT_pre_ESSI","SPECT_pre_ESV","SPECT_pre_LVEF","SPECT_pre_PBW","SPECT_pre_PSD","SPECT_pre_PhaseKurt","SPECT_pre_PhasePeak","SPECT_pre_PhaseSkew","SPECT_pre_SRscore","SPECT_pre_StrokeVolume","SPECT_pre_gMyoMass","SPECT_pre_WTper","SPECT_pre_WTsum","SPECT_pre_50scar","SPECT_pre_PSD_noScar","SPECT_pre_PBW_noScar",]]:
+    print("CI for " + column)
+    print(st.norm.interval(confidence=.95, loc=np.mean(clust_1[column]), scale= st.sem(clust_1[column])))
+print("Cluster 2 CI's")
+for column in clust_2[["Age","ECG_pre_QRSd","SPECT_post_LVEF","SPECT_pre_Diastolic_PBW","SPECT_pre_Diastolic_PSD","SPECT_pre_Diastolic_PhaseKurt","SPECT_pre_Diastolic_PhasePeak","SPECT_pre_Diastolic_PhaseSkew","SPECT_pre_EDE","SPECT_pre_EDSI","SPECT_pre_EDV","SPECT_pre_ESE","SPECT_pre_ESSI","SPECT_pre_ESV","SPECT_pre_LVEF","SPECT_pre_PBW","SPECT_pre_PSD","SPECT_pre_PhaseKurt","SPECT_pre_PhasePeak","SPECT_pre_PhaseSkew","SPECT_pre_SRscore","SPECT_pre_StrokeVolume","SPECT_pre_gMyoMass","SPECT_pre_WTper","SPECT_pre_WTsum","SPECT_pre_50scar","SPECT_pre_PSD_noScar","SPECT_pre_PBW_noScar",]]:
+    print("CI for " + column)
+    print(st.norm.interval(confidence=.95, loc=np.mean(clust_2[column]), scale= st.sem(clust_2[column])))
+print("Cluster 3 CI's")
+for column in clust_3[["Age","ECG_pre_QRSd","SPECT_post_LVEF","SPECT_pre_Diastolic_PBW","SPECT_pre_Diastolic_PSD","SPECT_pre_Diastolic_PhaseKurt","SPECT_pre_Diastolic_PhasePeak","SPECT_pre_Diastolic_PhaseSkew","SPECT_pre_EDE","SPECT_pre_EDSI","SPECT_pre_EDV","SPECT_pre_ESE","SPECT_pre_ESSI","SPECT_pre_ESV","SPECT_pre_LVEF","SPECT_pre_PBW","SPECT_pre_PSD","SPECT_pre_PhaseKurt","SPECT_pre_PhasePeak","SPECT_pre_PhaseSkew","SPECT_pre_SRscore","SPECT_pre_StrokeVolume","SPECT_pre_gMyoMass","SPECT_pre_WTper","SPECT_pre_WTsum","SPECT_pre_50scar","SPECT_pre_PSD_noScar","SPECT_pre_PBW_noScar",]]:
+    print("CI for " + column)
+    print(st.norm.interval(confidence=.95, loc=np.mean(clust_3[column]), scale= st.sem(clust_3[column])))
+print("Cluster 4 CI's")
+for column in clust_4[["Age","ECG_pre_QRSd","SPECT_post_LVEF","SPECT_pre_Diastolic_PBW","SPECT_pre_Diastolic_PSD","SPECT_pre_Diastolic_PhaseKurt","SPECT_pre_Diastolic_PhasePeak","SPECT_pre_Diastolic_PhaseSkew","SPECT_pre_EDE","SPECT_pre_EDSI","SPECT_pre_EDV","SPECT_pre_ESE","SPECT_pre_ESSI","SPECT_pre_ESV","SPECT_pre_LVEF","SPECT_pre_PBW","SPECT_pre_PSD","SPECT_pre_PhaseKurt","SPECT_pre_PhasePeak","SPECT_pre_PhaseSkew","SPECT_pre_SRscore","SPECT_pre_StrokeVolume","SPECT_pre_gMyoMass","SPECT_pre_WTper","SPECT_pre_WTsum","SPECT_pre_50scar","SPECT_pre_PSD_noScar","SPECT_pre_PBW_noScar",]]:
+    print("CI for " + column)
+    print(st.norm.interval(confidence=.95, loc=np.mean(clust_4[column]), scale= st.sem(clust_4[column])))
 # Generate boxplots of some relevant variables
 df3.boxplot("SPECT_pre_EDE", by="Cluster")
 df3.boxplot("SPECT_pre_ESE", by="Cluster")
@@ -215,4 +231,26 @@ df3.boxplot("SPECT_pre_PBW", by="Cluster")
 df3.boxplot("SPECT_pre_PSD", by="Cluster")
 df3.boxplot("SPECT_pre_PSD_noScar", by="Cluster")
 df3.boxplot("SPECT_pre_PBW_noScar", by="Cluster")
+#Plot confidence intervals
+def plt_CI(x, data):
+    mean=data.mean()
+    std= data.std()
+    confidence_interval= 1.96*std/sqrt(len(data))
+    left= x-.10
+    top= mean + confidence_interval
+    right= x+ .10
+    bottom= mean - confidence_interval
+    plt.plot([x,x], [top,bottom],color='blue')
+    plt.plot([left,right],[top,top],color='blue')
+    plt.plot([left,right],[bottom,bottom],color='blue')
+    plt.plot(x, mean, 'o', color='red')
+    return mean, confidence_interval
+for column in df3[['SPECT_pre_EDE','SPECT_pre_ESE','SPECT_pre_SRscore','SPECT_pre_StrokeVolume','SPECT_pre_50scar','SPECT_pre_Diastolic_PBW','SPECT_pre_Diastolic_PSD','SPECT_pre_PSD','SPECT_pre_PBW','SPECT_pre_PSD_noScar','SPECT_pre_StrokeVolume','SPECT_pre_PBW_noScar','SPECT_pre_StrokeVolume','SPECT_pre_50scar']]:
+    plt.figure(column)
+    plt.xticks([1,2,3],['Cluster 2','Cluster 3','Cluster 4'])
+    plt.title('Confidence Intervals for '+ column)
+    plt_CI(1,clust_2[column])
+    plt_CI(2,clust_3[column])
+    plt_CI(3,clust_4[column])
+    plt.axhline(df3[column].mean(),color='red',linestyle='--')
 plt.show()
